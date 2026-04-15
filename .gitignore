@@ -7,6 +7,8 @@
 /node_modules/
 /venv/
 /__pycache__/
+sdkconfig
+sdkconfig.old
 
 # Ignore IDE/editor specific files
 *.vscode/
