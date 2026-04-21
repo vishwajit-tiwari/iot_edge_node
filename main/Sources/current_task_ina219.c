@@ -42,10 +42,6 @@ void current_task_ina219(void *arg)
         // release semaphore after use 
         xSemaphoreGive(g_sensor_mutex_handle);
 
-        // TODO: Need to remove after debug
-        printf("INA219 Sensor Status = %d:\n", g_sensor_data.ina219_valid);
-        printf("Voltage = %.2f Current = %.2f Power = %.2f\n", g_sensor_data.voltage, g_sensor_data.current, g_sensor_data.power); 
-
         vTaskDelay(pdMS_TO_TICKS(500));
     }
 }

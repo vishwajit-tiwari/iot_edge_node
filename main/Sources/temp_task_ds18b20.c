@@ -71,7 +71,6 @@ void temp_task_ds18b20(void *arg)
 
                 xSemaphoreGive(g_sensor_mutex_handle);
 
-                printf("temperature = %.2f temp_valid = %d\n", g_sensor_data.temperature, g_sensor_data.temp_valid);
                 gpio_set_level(LED_BUILTIN, 1);  // TODO: need to remove after testing
 
                 state = TEMP_START;

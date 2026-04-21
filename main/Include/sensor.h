@@ -12,7 +12,7 @@ typedef struct
     float current;
     float voltage;
     float power;
-    
+
     bool motion;
 
     bool temp_valid;

@@ -21,7 +21,7 @@ static esp_err_t ina219_i2c_write(uint8_t reg, uint16_t data)
     write_buffer[2] = data & 0xFF; // Low byte
 
     // Write the register address followed by the data
-    esp_err_t status = i2c_master_write_to_device(I2C_PORT, INA219_ADDR, write_buffer, sizeof(write_buffer), pdMS_TO_TICKS(1000));
+    esp_err_t status = i2c_master_write_to_device(I2C_PORT, INA219_ADDR, write_buffer, 3, pdMS_TO_TICKS(100));
     if(status != ESP_OK)
     {
         ESP_LOGE(TAG, "Failed to write to INA219: %s", esp_err_to_name(status));
@@ -35,7 +35,7 @@ static esp_err_t ina219_i2c_read(uint8_t reg, uint16_t *data)
     uint8_t read_buff[2];  // Buffer to hold the 2 bytes of data read from the device
 
     // First, write the register address we want to read from, then read the data
-    esp_err_t status = i2c_master_write_read_device(I2C_PORT, INA219_ADDR, &reg, sizeof(reg), read_buff, sizeof(read_buff), pdMS_TO_TICKS(1000));
+    esp_err_t status = i2c_master_write_read_device(I2C_PORT, INA219_ADDR, &reg, 1, read_buff, 2, pdMS_TO_TICKS(100));
     if(status != ESP_OK)
     {
         ESP_LOGE(TAG, "Failed to read from INA219: %s", esp_err_to_name(status));
@@ -72,7 +72,7 @@ bool ina219_init(void)
 
     if(ina219_i2c_write(0x00, 0x399F) != ESP_OK) // Configuration register: 16V range, 320mA, 12-bit ADC
     {
-        ESP_LOGE(TAG, "Failed to configure INA219");
+        ESP_LOGE(TAG, "Failed to configure register: INA219");
         return false;
     }
 

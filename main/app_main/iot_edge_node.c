@@ -25,14 +25,14 @@
 // tasks declaration 
 extern void temp_task_ds18b20(void *arg);
 extern void current_task_ina219(void *arg);
-// extern void pir_task(void *);
-// extern void data_aggregator_task(void *);
-// extern void watchdog_task(void *);
+extern void pir_task(void *);
+extern void data_aggregator_task(void *);
+extern void watchdog_task(void *);
 
 // sensors initialization declaration
-// extern void pir_init();
-// extern void uart_init();
-// extern ina219_init();
+extern void pir_init();
+extern void uart_init();
+extern bool ina219_init();
 
 // gloabal declarations
 sensor_data_t g_sensor_data = {0};
@@ -51,8 +51,8 @@ void app_main(void)
     }
 
     // call to sensors initialization
-    // pir_init();
-    // uart_init();
+    pir_init();
+    uart_init();
     ina219_init();
 
     /**
@@ -75,22 +75,22 @@ void app_main(void)
         printf("Current & Power task creation failed!!\n");
     }
 
-    // isTaskCreated = xTaskCreate(pir_task, "PIR Task", 4096, NULL, 4, NULL);
-    // if(isTaskCreated == pdFALSE)
-    // {
-    //     printf("PIR task creation failed!!\n");
-    // }
+    isTaskCreated = xTaskCreate(pir_task, "PIR Task", 2048, NULL, 4, NULL);
+    if(isTaskCreated == pdFALSE)
+    {
+        printf("PIR task creation failed!!\n");
+    }
 
-    // isTaskCreated = xTaskCreate(data_aggregator_task, "Data Aggregator Task", 4096, NULL, 2, NULL);
-    // if(isTaskCreated == pdFALSE)
-    // {
-    //     printf("Data aggregator task creation failed!!\n");
-    // }
+    isTaskCreated = xTaskCreate(data_aggregator_task, "Data Aggregator Task", 2048, NULL, 2, NULL);
+    if(isTaskCreated == pdFALSE)
+    {
+        printf("Data aggregator task creation failed!!\n");
+    }
 
-    // isTaskCreated = xTaskCreate(watchdog_task, "Watchdog Task", 2048, NULL, 5, NULL);
-    // if(isTaskCreated == pdFALSE)
-    // {
-    //     printf("Watchdog task creation failed!!\n");
-    // }
+    isTaskCreated = xTaskCreate(watchdog_task, "Watchdog Task", 2048, NULL, 5, NULL);
+    if(isTaskCreated == pdFALSE)
+    {
+        printf("Watchdog task creation failed!!\n");
+    }
 
 }
