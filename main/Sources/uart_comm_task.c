@@ -2,22 +2,11 @@
 #include <stdio.h>
 #include <string.h>
 #include "sensor.h"
+#include "uart_comm.h"
+#include "crc.h"
+#include "esp_log.h"
 
-#define UART_PORT_NUM      UART_NUM_2
-#define UART_TX_PIN        17
-#define UART_RX_PIN        16
-
-static uint8_t checksum(uint8_t *data, int len) 
-{
-    uint8_t checkSum = 0;
-
-    for(int i=0; i<len; i++)
-    {
-        checkSum ^= data[i]; 
-    }
-
-    return checkSum;
-}
+static const char *UART_TAG = "UART_COMM";
 
 void uart_init(void)
 {
@@ -33,24 +22,56 @@ void uart_init(void)
     uart_set_pin(UART_PORT_NUM, UART_TX_PIN, UART_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
 }
 
-void uart_send(sensor_data_t *data)
+void uart_send(const sensor_data_t *data)
 {
+    if (data == NULL)
+    {
+        ESP_LOGE(UART_TAG, "NULL data");
+        return;
+    }
+
     char payload[128];
 
     int len = snprintf(payload, sizeof(payload), "<T:%.2f,I:%.2f,V:%.2f,P:%.2f,M:%d>", 
                         data->temperature, data->current, data->voltage, data->power, data->motion);
+    if (len <= 0 || len >= sizeof(payload))
+    {
+        ESP_LOGE(UART_TAG, "Payload error");
+        return;
+    }
 
-    uint8_t checkSum = checksum((uint8_t *)payload, len);
-
+    uint16_t crc_val = 0;
     char final_payload[150];
+    int final_len;
 
-    sprintf(final_payload, "%s*%02X\n", payload, checkSum);
+#if CRC_MODE == 16
+    crc_val = crc16_compute((const uint8_t *)payload, len);
+    final_len = snprintf(final_payload, sizeof(final_payload), "%s*%04X\n", payload, crc_val);
+#elif CRC_MODE == 8
+    crc_val = crc8_compute((const uint8_t *)payload, len);
+    final_len = snprintf(final_payload, sizeof(final_payload), "%s*%02X\n", payload, crc_val);
+#elif CRC_MODE == 0
+    crc_val = checksum((const uint8_t *)payload, len);
+    final_len = snprintf(final_payload, sizeof(final_payload), "%s*%02X\n", payload, crc_val);
+#else
+    #error "Invalid CRC_MODE"
+#endif
 
-    uart_write_bytes(UART_PORT_NUM, final_payload, strlen(final_payload));
+    if (final_len <= 0 || final_len >= sizeof(final_payload))
+    {
+        ESP_LOGE(UART_TAG, "Final payload error");
+        return;
+    }
 
-    // TODO: Need to remove the debug prints after verification
-    printf("Payload content: <T:%.2f, I:%.2f, V:%.2f, P:%.2f, M:%d>\n",
-            data->temperature, data->current, data->voltage, data->power, data->motion);  // Debug print to verify the payload content
-    printf("Checksum: %02X\n", checkSum);  // Debug print to verify the checksum value
-    printf("Sent over UART: %s\n", final_payload);  // Debug print to verify the payload being sent
+    int written = uart_write_bytes(UART_PORT_NUM, final_payload, final_len);
+
+    if (written != final_len)
+    {
+        ESP_LOGE(UART_TAG, "Write incomplete (%d/%d)", written, final_len);
+    }
+
+#if DEBUG
+    ESP_LOGI(UART_TAG, "Sent: %s", final_payload);
+#endif
 }
+
