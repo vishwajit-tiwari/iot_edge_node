@@ -48,7 +48,7 @@ static esp_err_t read_reg(uint8_t reg, uint16_t *data)
 
 // ---------------- Calibration ----------------
 
-static void set_calibration(float max_current)
+static bool set_calibration(float max_current)
 {
     float shunt = 0.1f;
 
@@ -56,7 +56,17 @@ static void set_calibration(float max_current)
 
     uint16_t calib = (uint16_t)(0.04096f / (current_lsb * shunt));
 
-    write_reg(REG_CALIB, calib);
+    esp_err_t ret = write_reg(REG_CALIB, calib);
+    if (ret != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Calibration failed");
+        return false;
+    }
+    else
+    {
+        ESP_LOGI(TAG, "Calibration successful");
+        return true;
+    }
 
     ESP_LOGI(TAG, "Calibration set: %.2fA", max_current);
 }
@@ -73,7 +83,12 @@ bool ina219_init(void)
         return false;
     }
 
-    set_calibration(3.2f);
+    const bool calibration_result = set_calibration(3.2f);
+    if (!calibration_result)
+    {
+        ESP_LOGE(TAG, "INA219 calibration failed");
+        return false;
+    }
 
     ESP_LOGI(TAG, "INA219 initialized");
 
@@ -103,4 +118,24 @@ bool ina219_read(float *voltage, float *current, float *power)
     *power = (*voltage) * (*current);
 
     return true;
+}
+
+bool ina219_recover(void)
+{
+    // Only sensor reconfiguration is required here since I2C driver is initialized globally and shared across tasks.
+    // We just need to reset the sensor configuration and calibration to recover from a potential sensor fault.
+
+    if(write_reg(REG_CONFIG, 0x399F) != ESP_OK)
+    {
+        return false;
+    }
+
+    const bool calibration_result = set_calibration(3.2f);
+    if (!calibration_result)
+    {
+        ESP_LOGE(TAG, "INA219 recovery calibration failed\n");
+        return false;
+    }
+
+    return calibration_result;
 }

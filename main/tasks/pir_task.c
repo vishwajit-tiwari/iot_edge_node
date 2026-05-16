@@ -3,8 +3,7 @@
  * @brief FreeRTOS task to handle PIR sensor events.
  * 
  * This task waits for motion detection events from the PIR sensor, updates the global sensor data structure, and implements a debounce mechanism to prevent multiple triggers from a single motion event.
- * The task also interacts with a watchdog to ensure system stability.
- * The PIR sensor is configured to trigger an interrupt on a rising edge, and the interrupt service routine sends a signal to this task via a FreeRTOS queue. The task then processes the event, updates the shared sensor data, and ensures that the system remains responsive by kicking the watchdog.
+ * The PIR sensor is configured to trigger an interrupt on a rising edge, and the interrupt service routine sends a signal to this task via a FreeRTOS queue. The task then processes the event, updates the shared sensor data, and ensures that the system remains responsive.
  * 
  * @note The actual implementation of the PIR sensor initialization and interrupt handling is done in the pir_init() function, which is called from the main task during system startup.
  * 
@@ -23,7 +22,7 @@
 
 #include "esp_log.h"
 #include "sensor.h"
-#include "watchdog.h"
+#include "supervisor.h"
 
 
 #define PIR_GPIO GPIO_NUM_27
@@ -50,8 +49,8 @@ void pir_init(void)
     gpio_config_t io_conf = {
         .pin_bit_mask = 1ULL << PIR_GPIO,
         .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_ENABLE,
+        // .pull_up_en = GPIO_PULLUP_DISABLE,
+        // .pull_down_en = GPIO_PULLDOWN_ENABLE,
         .intr_type = GPIO_INTR_POSEDGE, //!< GPIO interrupt type : rising edge
     };
 
@@ -79,16 +78,29 @@ void pir_task(void *arg)
     int motion_detected;
     TickType_t last_wake_time = 0;
 
-    watchdog_register(TASK_PIR); // Register the task with the watchdog to start monitoring
+    supervisor_task_config_t pir_config =
+    {
+        .id = TASK_PIR,
+        .name = "PIR",
+        .type = TASK_EVENT,
+        .state = TASK_STATE_INIT,
+        .timeout_ms = 5000,
+    };
+
+    supervisor_register_task(TASK_PIR, &pir_config);
 
     while (1)
     {
-        if(xQueueReceive(pir_queue_handle, &motion_detected, portMAX_DELAY) == pdTRUE)
+        supervisor_heartbeat(TASK_PIR);
+
+        if(xQueueReceive(pir_queue_handle, &motion_detected, pdMS_TO_TICKS(500)) == pdTRUE)
         {
             TickType_t current_time = xTaskGetTickCount();
 
             if(current_time - last_wake_time >= pdMS_TO_TICKS(2000)) // 2 seconds debounce
             {
+                supervisor_progress(TASK_PIR);
+                
                 if(xSemaphoreTake(g_sensor_mutex_handle, portMAX_DELAY) != pdTRUE)
                 {
                     ESP_LOGE(PIR_TAG, "Failed to take sensor mutex in PIR task");
@@ -104,9 +116,6 @@ void pir_task(void *arg)
                 }
 
                 last_wake_time = current_time;
-
-                watchdog_kick(TASK_PIR); // Kick the watchdog to indicate the task is still alive
-                watchdog_increment_progress(TASK_PIR); // Increment progress counter to indicate task is making progress
             }
         }
     }

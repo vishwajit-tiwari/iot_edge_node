@@ -9,17 +9,15 @@
  * 2. Initializes the PIR sensor and UART for data transmission.
  * 3. Creates FreeRTOS tasks for reading temperature, current, and motion data.
  * 4. Creates a data aggregator task to compile sensor data and transmit it over UART.
- * 5. Creates a watchdog task to monitor the health of the system.
  * 
- * The main task ensures that all sensor data is collected and transmitted efficiently while maintaining system stability through the watchdog mechanism.
+ * The main task ensures that all sensor data is collected and transmitted efficiently while maintaining system stability.
  * 
- * @note The actual implementation of the sensor reading tasks, data aggregation, and watchdog functionality is handled in separate source files to maintain modularity and readability.
+ * @note The actual implementation of the sensor reading tasks and data aggregation functionality is handled in separate source files to maintain modularity and readability.
  * 
  * @see current_task_ina219.c for INA219 sensor reading task implementation.
  * @see temp_task_ds18b20.c for DS18B20 sensor reading task implementation
  * @see pir_task.c for PIR sensor reading task implementation
  * @see data_aggregator_task.c for data aggregation and transmission implementation
- * @see watchdog_task.c for system monitoring implementation
  * 
  * @author Vishwajit Kumar Tiwari
  * @date 11/04/2026
@@ -40,14 +38,13 @@
 #include "sensor.h"
 #include "current_sensor_ina219.h"
 #include "i2c_manager.h"
-#include "watchdog.h"
+#include "supervisor.h"
 
 // tasks declaration 
 extern void temp_task_ds18b20(void *arg);
 extern void current_task_ina219(void *arg);
 extern void pir_task(void *);
 extern void data_aggregator_task(void *);
-extern void watchdog_task(void *);
 
 // sensors initialization declaration
 extern void pir_init();
@@ -75,6 +72,7 @@ void app_main(void)
     pir_init(); // Initialize PIR sensor
     uart_init(); // Initialize UART for data transmission
     ina219_init(); // Initialize INA219 current sensor
+    supervisor_init(); // Initialize supervisor for task monitoring and recovery
 
     /**
      * BaseType_t xTaskCreate(TaskFunction_t pxTaskCode, 
@@ -108,12 +106,10 @@ void app_main(void)
         ESP_LOGE("MAIN", "Data aggregator task creation failed!");
     }
 
-    isTaskCreated = xTaskCreate(watchdog_task, "Watchdog Task", 2048, NULL, 4, NULL);
+    isTaskCreated = xTaskCreate(supervisor_task, "Supervisor Task", 4096, NULL, 5, NULL);
     if(isTaskCreated == pdFALSE)
     {
-        ESP_LOGE("MAIN", "Watchdog task creation failed!");
+        ESP_LOGE("MAIN", "Supervisor task creation failed!");
     }
-
-    watchdog_init(); // Initialize the watchdog after creating tasks to start monitoring
 
 }

@@ -16,5 +16,6 @@
 
 bool ina219_init(void);
 bool ina219_read(float *voltage, float *current, float *power);
+bool ina219_recover(void);
 
 #endif // CURRENT_SENSOR_INA219_H
