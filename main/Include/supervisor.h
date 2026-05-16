@@ -8,7 +8,7 @@
  * @note The actual implementation of the supervisor functionality is handled in the corresponding source file (supervisor.c) to maintain modularity and readability.
  * @see supervisor.c for the implementation of the supervisor task.
  * @author Vishwajit Kumar Tiwari
- * @date 11/04/2026
+ * @date 16/05/2026
  * @copyright All rights reserved (C) 2026
  */
 
