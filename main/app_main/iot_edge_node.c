@@ -1,19 +1,37 @@
 /**
- * @file iot_edge_node: The main task for all the RTOS functionality
- * @brief This is the entry point of RTOS tasks to handle diffrent functionality:
- * ********************************************************************************
- * ------------Temperature sensing DS18B20(non-blocking state machine)-------------
- * -------------Current & Power sensing INA219 (I2C current + power)---------------
- * ------------------------PIR sensing (ISR + debounce)----------------------------
- * ********************************************************************************
+ * @file iot_edge_node.c
+ * @brief Main task for IoT edge node handling multiple sensors and data aggregation.
+ * 
+ * This file contains the implementation of the main task for an IoT edge node that manages multiple sensors including a DS18B20 temperature sensor, an INA219 current sensor, and a PIR motion sensor. The main task initializes the sensors, creates FreeRTOS tasks for each sensor, and handles data aggregation and transmission.
+ * 
+ * The main task performs the following functions:
+ * 1. Initializes the I2C driver for the INA219 sensor.
+ * 2. Initializes the PIR sensor and UART for data transmission.
+ * 3. Creates FreeRTOS tasks for reading temperature, current, and motion data.
+ * 4. Creates a data aggregator task to compile sensor data and transmit it over UART.
+ * 5. Creates a watchdog task to monitor the health of the system.
+ * 
+ * The main task ensures that all sensor data is collected and transmitted efficiently while maintaining system stability through the watchdog mechanism.
+ * 
+ * @note The actual implementation of the sensor reading tasks, data aggregation, and watchdog functionality is handled in separate source files to maintain modularity and readability.
+ * 
+ * @see current_task_ina219.c for INA219 sensor reading task implementation.
+ * @see temp_task_ds18b20.c for DS18B20 sensor reading task implementation
+ * @see pir_task.c for PIR sensor reading task implementation
+ * @see data_aggregator_task.c for data aggregation and transmission implementation
+ * @see watchdog_task.c for system monitoring implementation
+ * 
  * @author Vishwajit Kumar Tiwari
  * @date 11/04/2026
- * @copyright All rights reserved (C) 2026 
+ * 
+ * @copyright All rights reserved (C) 2026
+ * 
  */
-
 
 // header file inclusion
 #include <stdio.h>
+#include "esp_log.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -21,6 +39,8 @@
 
 #include "sensor.h"
 #include "current_sensor_ina219.h"
+#include "i2c_manager.h"
+#include "watchdog.h"
 
 // tasks declaration 
 extern void temp_task_ds18b20(void *arg);
@@ -47,13 +67,14 @@ void app_main(void)
     g_sensor_mutex_handle = xSemaphoreCreateMutex();
     if(g_sensor_mutex_handle == NULL)
     {
-        printf("Semaphore creation failed!\n");
+        ESP_LOGE("MAIN", "Semaphore creation failed!");
     }
 
     // call to sensors initialization
-    pir_init();
-    uart_init();
-    ina219_init();
+    i2c_master_init_once(); // Initialize I2C driver before INA219
+    pir_init(); // Initialize PIR sensor
+    uart_init(); // Initialize UART for data transmission
+    ina219_init(); // Initialize INA219 current sensor
 
     /**
      * BaseType_t xTaskCreate(TaskFunction_t pxTaskCode, 
@@ -66,31 +87,33 @@ void app_main(void)
     isTaskCreated = xTaskCreate(temp_task_ds18b20, "Temperature Task", 2048, NULL, 3, NULL);
     if(isTaskCreated == pdFALSE)
     {
-        printf("Temperature task creation failed!!\n");
+        ESP_LOGE("MAIN", "Temperature task creation failed!");
     }
 
-    isTaskCreated = xTaskCreate(current_task_ina219, "Current and Power Task", 2048, NULL, 3, NULL);
+    isTaskCreated = xTaskCreate(current_task_ina219, "Current and Power Task", 3072, NULL, 3, NULL);
     if(isTaskCreated == pdFALSE)
     {
-        printf("Current & Power task creation failed!!\n");
+        ESP_LOGE("MAIN", "Current and Power task creation failed!");
     }
 
     isTaskCreated = xTaskCreate(pir_task, "PIR Task", 2048, NULL, 4, NULL);
     if(isTaskCreated == pdFALSE)
     {
-        printf("PIR task creation failed!!\n");
+        ESP_LOGE("MAIN", "PIR task creation failed!");
     }
 
-    isTaskCreated = xTaskCreate(data_aggregator_task, "Data Aggregator Task", 2048, NULL, 2, NULL);
+    isTaskCreated = xTaskCreate(data_aggregator_task, "Data Aggregator Task", 3072, NULL, 2, NULL);
     if(isTaskCreated == pdFALSE)
     {
-        printf("Data aggregator task creation failed!!\n");
+        ESP_LOGE("MAIN", "Data aggregator task creation failed!");
     }
 
-    isTaskCreated = xTaskCreate(watchdog_task, "Watchdog Task", 2048, NULL, 5, NULL);
+    isTaskCreated = xTaskCreate(watchdog_task, "Watchdog Task", 2048, NULL, 4, NULL);
     if(isTaskCreated == pdFALSE)
     {
-        printf("Watchdog task creation failed!!\n");
+        ESP_LOGE("MAIN", "Watchdog task creation failed!");
     }
+
+    watchdog_init(); // Initialize the watchdog after creating tasks to start monitoring
 
 }

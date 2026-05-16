@@ -13,7 +13,7 @@ typedef struct
     float voltage;
     float power;
 
-    bool motion;
+    int motion;
 
     bool temp_valid;
     bool ina219_valid;

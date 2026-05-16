@@ -9,6 +9,7 @@
 
 #include "sensor.h"
 #include "temp_sensor_ds18b20.h"
+#include "watchdog.h"
 
 #define LED_BUILTIN GPIO_NUM_2 // or on board LED 
 
@@ -32,6 +33,8 @@ void temp_task_ds18b20(void *arg)
     TickType_t start;
 
     led_setup();
+
+    watchdog_register(TASK_TEMP); // Register the task with the watchdog to start monitoring
 
     while (1)
     {
@@ -70,6 +73,9 @@ void temp_task_ds18b20(void *arg)
                 }
 
                 xSemaphoreGive(g_sensor_mutex_handle);
+
+                watchdog_kick(TASK_TEMP); // Kick the watchdog to indicate the task is still alive
+                watchdog_increment_progress(TASK_TEMP); // Increment progress counter to indicate task is making progress
 
                 gpio_set_level(LED_BUILTIN, 1);  // TODO: need to remove after testing
 
