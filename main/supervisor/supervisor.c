@@ -70,7 +70,6 @@ static bool recover_task(task_id_t id)
             return false;
 
         case TASK_AGGREGATOR:
-
             ESP_LOGW(TAG, "Aggregator recovery");
             return true;
 
@@ -200,6 +199,7 @@ void supervisor_task(void *arg)
 
               task->config.state = TASK_STATE_RECOVERING;
               task->config.recovery_attempts++;
+
               bool recovered = recover_task(i);
 
               if(recovered) 
