@@ -14,7 +14,9 @@ void uart_init(void)
         .baud_rate = 115200,
         .data_bits = UART_DATA_8_BITS,
         .parity = UART_PARITY_DISABLE,
-        .stop_bits = UART_STOP_BITS_1
+        .stop_bits = UART_STOP_BITS_1,
+        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+        .source_clk = UART_SCLK_APB
     };
 
     uart_driver_install(UART_PORT_NUM, 1024, 0, 0, NULL, 0);
@@ -46,7 +48,7 @@ void uart_send(const sensor_data_t *data)
 
 #if CRC_MODE == 16
     crc_val = crc16_compute((const uint8_t *)payload, len);
-    final_len = snprintf(final_payload, sizeof(final_payload), "%s*%04X\n", payload, crc_val);
+    final_len = snprintf(final_payload, sizeof(final_payload), "%s*%04X\r\n", payload, crc_val);
 #elif CRC_MODE == 8
     crc_val = crc8_compute((const uint8_t *)payload, len);
     final_len = snprintf(final_payload, sizeof(final_payload), "%s*%02X\n", payload, crc_val);
